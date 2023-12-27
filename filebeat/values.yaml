@@ -38,16 +38,36 @@ daemonset:
   filebeatConfig:
     filebeat.yml: |
       filebeat.inputs:
-      - type: container
-        paths:
-          - /var/log/containers/*.log
-        processors:
-        - add_kubernetes_metadata:
-            host: ${NODE_NAME}
-            matchers:
-            - logs_path:
-                logs_path: "/var/log/containers/"
-
+        - type: container
+          paths:
+            - /var/log/containers/*.log
+          fields:
+            log-source: stdout
+          key1: value1
+          processors:
+            - add_kubernetes_metadata:
+                default_indexers.enabled: true
+                default_matchers.enabled: true
+                host: ${NODE_NAME}
+                matchers:
+                  - logs_path:
+                      logs_path: "/var/log/containers/"
+        - type: log
+          paths:
+            - /var/log/application/*.log
+          fields:
+            log-source: logfile
+          multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+          multiline.negate: true
+          multiline.match: after
+          processors:
+            - add_kubernetes_metadata:
+                default_indexers.enabled: true
+                default_matchers.enabled: true
+                host: ${NODE_NAME}
+                matchers:
+                  - logs_path:
+                      logs_path: "/var/log/application/"
       output.elasticsearch:
         host: '${NODE_NAME}'
         hosts: '${ELASTICSEARCH_HOSTS:elasticsearch-master:9200}'
@@ -61,6 +81,7 @@ daemonset:
   nodeSelector: {}
   # A list of secrets and their paths to mount inside the pod
   # This is useful for mounting certificates for security other sensitive values
+  
   secretMounts:
     - name: elastic-certificate-pem
       secretName: elastic-certificate-pem
